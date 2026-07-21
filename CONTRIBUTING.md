@@ -34,4 +34,4 @@ Network tests must bind only to loopback. Test fixtures must not use real creden
 - Baseline schema changes require a new `schema_version`; do not silently reinterpret old files.
 - Keep the runtime standard-library-only unless a dependency has a clear security and maintenance justification.
 
-Before proposing a change, run Python 3.11 and 3.12 tests and include the exact command/output summary.
+Before proposing a change, run the full test suite on every supported Python version (currently 3.11–3.14) and include the exact command/output summary.

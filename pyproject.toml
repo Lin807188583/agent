@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcp-ci-demo"
-version = "1.0.0"
+version = "1.1.0"
 description = "Zero-dependency black-box MCP conformance, policy, and metadata drift checks for CI"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -17,6 +17,8 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Software Development :: Testing",
   "Topic :: Security",
 ]

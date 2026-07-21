@@ -65,3 +65,11 @@ This order lets one repository control every stable rule family while keeping th
 Suppressions keep findings in JSON/text/JUnit/SARIF but remove them from threshold failure calculation. A suppression requires a non-empty reason. `expires` is inclusive on that date and stops applying the following day. Tool-scoped suppressions win over rule-wide suppressions.
 
 Configuration and baseline files should be owned and reviewed like security-sensitive code. Avoid allowing untrusted pull requests to rewrite them without approval.
+
+## Runtime limits
+
+Runtime limits are CLI and Action inputs rather than JSON policy fields. `--timeout` limits one protocol request and defaults to 5 seconds. `--total-timeout` limits the complete probe and defaults to 60 seconds. Both reject zero, negative, NaN, and infinite values before the target starts.
+
+The report records both values in `observations.limits`. A complete-budget timeout is an operational failure with exit code `2`; it is not a suppressible security finding because the checker did not finish collecting evidence.
+
+stdio diagnostics are retained within fixed internal count and text limits. `observations.diagnostics` distinguishes total and retained values and records truncation. Unsolicited JSON-RPC content is summarized instead of copied into artifacts.

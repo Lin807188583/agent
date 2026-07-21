@@ -2,6 +2,14 @@
 
 All notable changes are documented here. The project follows semantic versioning for CLI behavior, baseline schemas, configuration fields, and stable rule IDs.
 
+## 1.1.0 - 2026-07-21
+
+- Added a finite, positive complete-probe timeout alongside the per-request timeout.
+- Bounded stdio protocol-noise, stderr, and unsolicited-message evidence with audited truncation metadata.
+- Summarized unsolicited JSON-RPC messages without retaining arbitrary payload bodies.
+- Made report and baseline writes atomic and failure-safe.
+- Expanded CI to Python 3.11–3.14 with compile, wheel build, isolated installed-CLI, and Action smoke gates.
+
 ## 1.0.0 - 2026-07-21
 
 - Added strict repository policy invariants (`POL001`–`POL006`).

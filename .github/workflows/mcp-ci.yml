@@ -11,19 +11,36 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Compile source and fixtures
+        run: python -m compileall -q src tests examples scripts
       - name: Run unit and end-to-end tests
         env:
           PYTHONPATH: src
         run: python -m unittest discover -s tests -v
+      - name: Build and install the wheel
+        run: |
+          python -m pip wheel . --no-deps --wheel-dir dist
+          python -m pip install --force-reinstall dist/mcp_ci_demo-*.whl
+      - name: Smoke-test the installed CLI outside the source tree
+        working-directory: ${{ runner.temp }}
+        run: |
+          mcp-ci --version
+          mcp-ci check \
+            --stdio "python $GITHUB_WORKSPACE/examples/good_server.py" \
+            --config "$GITHUB_WORKSPACE/examples/mcp-ci-policy.json" \
+            --baseline "$GITHUB_WORKSPACE/examples/mcp-ci-baseline.json" \
+            --format sarif \
+            --output "$RUNNER_TEMP/installed-mcp-ci.sarif"
       - name: Run the repository's v1 policy and baseline checks
         uses: ./
         with:
@@ -31,6 +48,7 @@ jobs:
           config: examples/mcp-ci-policy.json
           baseline: examples/mcp-ci-baseline.json
           fail-on: medium
+          total-timeout: 60
           format: sarif
           output: artifacts/mcp-ci.sarif
       - name: Upload MCP CI SARIF artifact
