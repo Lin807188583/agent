@@ -21,6 +21,10 @@ inputs:
     description: Per-request timeout in seconds
     required: false
     default: "5"
+  total-timeout:
+    description: Complete probe timeout in seconds
+    required: false
+    default: "60"
   format:
     description: Report format (text, json, junit, or sarif)
     required: false
@@ -48,6 +52,7 @@ runs:
         MCP_CI_FAIL_ON: ${{ inputs['fail-on'] }}
         MCP_CI_PROTOCOL_VERSION: ${{ inputs['protocol-version'] }}
         MCP_CI_TIMEOUT: ${{ inputs.timeout }}
+        MCP_CI_TOTAL_TIMEOUT: ${{ inputs['total-timeout'] }}
         MCP_CI_FORMAT: ${{ inputs.format }}
         MCP_CI_OUTPUT: ${{ inputs.output }}
         MCP_CI_CONFIG: ${{ inputs.config }}

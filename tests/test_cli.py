@@ -1,9 +1,11 @@
+import asyncio
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 import json
 from pathlib import Path
 import sys
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 import unittest
 
 from mcp_ci.cli import main
@@ -48,6 +50,54 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 2)
         self.assertIn("cannot start target command", stderr.getvalue())
+
+    def test_timeout_values_must_be_positive_and_finite(self) -> None:
+        cases = [
+            ("--timeout", "0"),
+            ("--timeout", "nan"),
+            ("--timeout", "inf"),
+            ("--total-timeout", "0"),
+            ("--total-timeout", "nan"),
+            ("--total-timeout", "inf"),
+        ]
+        for option, value in cases:
+            stderr = StringIO()
+            with self.subTest(option=option, value=value), redirect_stderr(stderr):
+                exit_code = main(
+                    [
+                        "check",
+                        "--stdio",
+                        "definitely-not-a-real-command",
+                        option,
+                        value,
+                    ]
+                )
+
+            self.assertEqual(exit_code, 2)
+            self.assertIn(option, stderr.getvalue())
+            self.assertNotIn("cannot start target command", stderr.getvalue())
+
+    def test_total_timeout_stops_a_slow_probe(self) -> None:
+        async def slow_probe(*args: object, **kwargs: object) -> object:
+            await asyncio.sleep(1)
+            raise AssertionError("the total timeout should cancel the probe")
+
+        stderr = StringIO()
+        with patch("mcp_ci.cli.run_stdio_probe", new=slow_probe), redirect_stderr(
+            stderr
+        ):
+            exit_code = main(
+                [
+                    "check",
+                    "--stdio",
+                    COMMAND,
+                    "--total-timeout",
+                    "0.01",
+                ]
+            )
+
+        self.assertEqual(exit_code, 2)
+        self.assertIn("total timeout", stderr.getvalue())
 
     def test_sarif_output_can_be_written_to_a_file(self) -> None:
         stdout = StringIO()

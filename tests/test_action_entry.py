@@ -42,6 +42,7 @@ class ActionEntryTests(unittest.TestCase):
             "MCP_CI_FAIL_ON": "high",
             "MCP_CI_PROTOCOL_VERSION": "2025-11-25",
             "MCP_CI_TIMEOUT": "9",
+            "MCP_CI_TOTAL_TIMEOUT": "45",
             "MCP_CI_FORMAT": "sarif",
             "MCP_CI_CONFIG": "mcp-ci.json",
             "MCP_CI_BASELINE": "mcp-ci-baseline.json",
@@ -56,6 +57,8 @@ class ActionEntryTests(unittest.TestCase):
         self.assertIn("mcp-ci-baseline.json", arguments)
         self.assertIn("--timeout", arguments)
         self.assertIn("9", arguments)
+        self.assertIn("--total-timeout", arguments)
+        self.assertIn("45", arguments)
         self.assertEqual(arguments[-2:], ["--output", "artifacts/results.sarif"])
 
 

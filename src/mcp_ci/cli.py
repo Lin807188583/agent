@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import math
 from pathlib import Path
 import shlex
 import sys
@@ -56,6 +57,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="per-request timeout in seconds (default: %(default)s)",
     )
     check.add_argument(
+        "--total-timeout",
+        type=float,
+        default=60.0,
+        help="complete probe timeout in seconds (default: %(default)s)",
+    )
+    check.add_argument(
         "--format",
         choices=("text", "json", "junit", "sarif"),
         default="text",
@@ -92,32 +99,46 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 async def _run_check(args: argparse.Namespace) -> int:
-    if args.timeout <= 0:
-        raise ValueError("--timeout must be greater than zero")
+    for option, value in (
+        ("--timeout", args.timeout),
+        ("--total-timeout", args.total_timeout),
+    ):
+        if not math.isfinite(value) or value <= 0:
+            raise ValueError(f"{option} must be finite and greater than zero")
     threshold = None if args.fail_on == "none" else Severity.parse(args.fail_on)
     config = load_config(args.config) if args.config else Config()
     expected_baseline = load_baseline(args.baseline) if args.baseline else None
     if args.write_baseline and args.output:
         if Path(args.write_baseline).resolve() == Path(args.output).resolve():
             raise ValueError("--write-baseline and --output must use different paths")
-    if args.stdio is not None:
-        command = shlex.split(args.stdio)
-        if not command:
-            raise ValueError("--stdio command cannot be empty")
-        evidence = await run_stdio_probe(
-            command,
-            target=args.stdio,
-            requested_protocol_version=args.protocol_version,
-            timeout=args.timeout,
-        )
-    else:
-        evidence = await run_http_probe(
-            args.http,
-            target=args.http,
-            requested_protocol_version=args.protocol_version,
-            timeout=args.timeout,
-        )
+    try:
+        async with asyncio.timeout(args.total_timeout):
+            if args.stdio is not None:
+                command = shlex.split(args.stdio)
+                if not command:
+                    raise ValueError("--stdio command cannot be empty")
+                evidence = await run_stdio_probe(
+                    command,
+                    target=args.stdio,
+                    requested_protocol_version=args.protocol_version,
+                    timeout=args.timeout,
+                )
+            else:
+                evidence = await run_http_probe(
+                    args.http,
+                    target=args.http,
+                    requested_protocol_version=args.protocol_version,
+                    timeout=args.timeout,
+                )
+    except TimeoutError as error:
+        raise TransportError(
+            f"probe exceeded total timeout of {args.total_timeout:g} seconds"
+        ) from error
     report = build_report(evidence)
+    report.observations["limits"] = {
+        "request_timeout_seconds": args.timeout,
+        "total_timeout_seconds": args.total_timeout,
+    }
     apply_policy(report, evidence, config.policy)
     if expected_baseline is not None:
         apply_baseline(report, evidence, expected_baseline)

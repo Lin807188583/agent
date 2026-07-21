@@ -29,6 +29,8 @@ def build_arguments() -> list[str]:
         os.environ.get("MCP_CI_PROTOCOL_VERSION", "2025-11-25"),
         "--timeout",
         os.environ.get("MCP_CI_TIMEOUT", "5"),
+        "--total-timeout",
+        os.environ.get("MCP_CI_TOTAL_TIMEOUT", "60"),
         "--format",
         os.environ.get("MCP_CI_FORMAT", "text"),
     ]
