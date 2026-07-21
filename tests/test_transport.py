@@ -45,6 +45,40 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response["result"]["kind"], "response")
         self.assertEqual(self.client.unsolicited_messages[0]["method"], "sampling/createMessage")
 
+    async def test_diagnostic_evidence_is_bounded_and_auditable(self) -> None:
+        client = JsonRpcStdioClient(
+            [sys.executable, str(FIXTURE)],
+            timeout=2,
+            diagnostic_limit=2,
+            diagnostic_text_limit=32,
+        )
+        await client.start()
+        try:
+            await client.request("diagnostic_flood")
+            await asyncio.sleep(0.02)
+        finally:
+            await client.close()
+
+        diagnostics = client.diagnostic_observations
+        self.assertEqual(diagnostics["protocol_noise"]["total"], 5)
+        self.assertEqual(diagnostics["protocol_noise"]["retained"], 2)
+        self.assertTrue(diagnostics["protocol_noise"]["truncated"])
+        self.assertEqual(diagnostics["stderr"]["total"], 6)
+        self.assertEqual(diagnostics["stderr"]["retained"], 2)
+        self.assertTrue(diagnostics["stderr"]["truncated"])
+        self.assertEqual(diagnostics["unsolicited_messages"]["total"], 5)
+        self.assertEqual(diagnostics["unsolicited_messages"]["retained"], 2)
+        self.assertTrue(diagnostics["unsolicited_messages"]["truncated"])
+        self.assertTrue(
+            diagnostics["unsolicited_messages"]["content_summarized"]
+        )
+        self.assertTrue(all(len(line) <= 32 for line in client.protocol_noise))
+        self.assertTrue(all(len(line) <= 32 for line in client.stderr_lines))
+        self.assertNotIn("params", client.unsolicited_messages[0])
+        self.assertEqual(
+            client.unsolicited_messages[0]["method"], "sampling/createMessage"
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

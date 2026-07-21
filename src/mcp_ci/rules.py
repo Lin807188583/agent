@@ -1064,6 +1064,30 @@ def build_report(evidence: ProbeEvidence) -> CheckReport:
             seen.add(signature)
             findings.append(finding)
     findings.sort(key=lambda item: (-item.severity.rank, item.rule_id, item.message))
+    diagnostics = evidence.diagnostic_observations or {
+        "protocol_noise": {
+            "total": len(evidence.protocol_noise),
+            "retained": len(evidence.protocol_noise),
+            "truncated": False,
+        },
+        "stderr": {
+            "total": len(evidence.stderr_lines),
+            "retained": len(evidence.stderr_lines),
+            "truncated": False,
+        },
+        "unsolicited_messages": {
+            "total": len(evidence.unsolicited_messages),
+            "retained": len(evidence.unsolicited_messages),
+            "truncated": False,
+            "content_summarized": False,
+        },
+    }
+    stderr_diagnostics = diagnostics.get("stderr", {})
+    unsolicited_diagnostics = diagnostics.get("unsolicited_messages", {})
+    stderr_count = stderr_diagnostics.get("total", len(evidence.stderr_lines))
+    unsolicited_count = unsolicited_diagnostics.get(
+        "total", len(evidence.unsolicited_messages)
+    )
     return CheckReport(
         target=evidence.target,
         requested_protocol_version=evidence.requested_protocol_version,
@@ -1094,6 +1118,7 @@ def build_report(evidence: ProbeEvidence) -> CheckReport:
                 else []
             ),
             "transport_checks": evidence.transport_observations,
+            "diagnostics": diagnostics,
             "capability_checks": evidence.capability_observations,
             "pagination_checks": evidence.pagination_observations,
             "discovered_tool_count": len(evidence.all_tools),
@@ -1110,8 +1135,8 @@ def build_report(evidence: ProbeEvidence) -> CheckReport:
             "discovered_prompt_count": len(
                 ProbeEvidence._items_from_pages(evidence.prompts_list_pages, "prompts")
             ),
-            "stderr_line_count": len(evidence.stderr_lines),
-            "unsolicited_message_count": len(evidence.unsolicited_messages),
+            "stderr_line_count": stderr_count,
+            "unsolicited_message_count": unsolicited_count,
             "tools_were_executed": False,
             "resources_were_read": False,
             "prompts_were_resolved": False,

@@ -37,6 +37,7 @@ class ProbeEvidence:
     protocol_noise: list[str] = field(default_factory=list)
     stderr_lines: list[str] = field(default_factory=list)
     unsolicited_messages: list[dict[str, Any]] = field(default_factory=list)
+    diagnostic_observations: dict[str, Any] = field(default_factory=dict)
     transport_observations: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -285,6 +286,27 @@ def _build_evidence(
     stderr_lines: list[str] | None = None,
     transport_observations: dict[str, Any] | None = None,
 ) -> ProbeEvidence:
+    retained_stderr = list(stderr_lines or [])
+    diagnostics = getattr(client, "diagnostic_observations", None)
+    if not isinstance(diagnostics, dict):
+        diagnostics = {
+            "protocol_noise": {
+                "total": len(client.protocol_noise),
+                "retained": len(client.protocol_noise),
+                "truncated": False,
+            },
+            "stderr": {
+                "total": len(retained_stderr),
+                "retained": len(retained_stderr),
+                "truncated": False,
+            },
+            "unsolicited_messages": {
+                "total": len(client.unsolicited_messages),
+                "retained": len(client.unsolicited_messages),
+                "truncated": False,
+                "content_summarized": False,
+            },
+        }
     return ProbeEvidence(
         target=target,
         requested_protocol_version=requested_protocol_version,
@@ -304,8 +326,9 @@ def _build_evidence(
         capability_observations=dict(responses.get("capability_observations", {})),
         unknown_method_response=responses["unknown_method_response"],
         protocol_noise=list(client.protocol_noise),
-        stderr_lines=list(stderr_lines or []),
+        stderr_lines=retained_stderr,
         unsolicited_messages=list(client.unsolicited_messages),
+        diagnostic_observations=diagnostics,
         transport_observations=transport_observations or {},
     )
 

@@ -35,6 +35,26 @@ def handle(message: dict[str, object]) -> None:
             sys.stdout.write("debug text accidentally written to stdout\n")
             sys.stdout.flush()
         write_message({"jsonrpc": "2.0", "id": request_id, "result": {}})
+    elif method == "diagnostic_flood":
+        for index in range(5):
+            with write_lock:
+                sys.stdout.write(f"noise-{index}-{'x' * 64}\n")
+                sys.stdout.write(
+                    json.dumps(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": f"server-{index}",
+                            "method": "sampling/createMessage",
+                            "params": {"untrusted": "y" * 64},
+                        },
+                        separators=(",", ":"),
+                    )
+                    + "\n"
+                )
+                sys.stdout.flush()
+            sys.stderr.write(f"stderr-{index}-{'z' * 64}\n")
+            sys.stderr.flush()
+        write_message({"jsonrpc": "2.0", "id": request_id, "result": {}})
     elif method == "server_request_collision":
         write_message(
             {

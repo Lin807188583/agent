@@ -7,6 +7,10 @@ import json
 from typing import Any
 
 
+DEFAULT_DIAGNOSTIC_LIMIT = 200
+DEFAULT_DIAGNOSTIC_TEXT_LIMIT = 4096
+
+
 class TransportError(RuntimeError):
     """The child process or JSON-RPC transport could not complete an operation."""
 
@@ -24,21 +28,106 @@ class JsonRpcStdioClient:
         *,
         timeout: float = 5.0,
         stream_limit: int = 1024 * 1024,
+        diagnostic_limit: int = DEFAULT_DIAGNOSTIC_LIMIT,
+        diagnostic_text_limit: int = DEFAULT_DIAGNOSTIC_TEXT_LIMIT,
     ) -> None:
         if not command:
             raise ValueError("stdio command cannot be empty")
+        if diagnostic_limit <= 0:
+            raise ValueError("diagnostic_limit must be greater than zero")
+        if diagnostic_text_limit <= 0:
+            raise ValueError("diagnostic_text_limit must be greater than zero")
         self.command = command
         self.timeout = timeout
         self.stream_limit = stream_limit
+        self.diagnostic_limit = diagnostic_limit
+        self.diagnostic_text_limit = diagnostic_text_limit
         self.process: asyncio.subprocess.Process | None = None
         self.protocol_noise: list[str] = []
         self.stderr_lines: list[str] = []
         self.unsolicited_messages: list[dict[str, Any]] = []
+        self.protocol_noise_count = 0
+        self.stderr_line_count = 0
+        self.unsolicited_message_count = 0
+        self._protocol_noise_truncated = False
+        self._stderr_truncated = False
+        self._unsolicited_messages_truncated = False
         self._pending: dict[int | str, asyncio.Future[dict[str, Any]]] = {}
         self._next_id = 1
         self._write_lock = asyncio.Lock()
         self._stdout_task: asyncio.Task[None] | None = None
         self._stderr_task: asyncio.Task[None] | None = None
+
+    def _truncate_text(self, value: str) -> tuple[str, bool]:
+        if len(value) <= self.diagnostic_text_limit:
+            return value, False
+        if self.diagnostic_text_limit == 1:
+            return "…", True
+        return value[: self.diagnostic_text_limit - 1] + "…", True
+
+    def _record_protocol_noise(self, value: str) -> None:
+        self.protocol_noise_count += 1
+        sample, text_truncated = self._truncate_text(value)
+        self._protocol_noise_truncated |= text_truncated
+        if len(self.protocol_noise) < self.diagnostic_limit:
+            self.protocol_noise.append(sample)
+        else:
+            self._protocol_noise_truncated = True
+
+    def _record_stderr(self, value: str) -> None:
+        self.stderr_line_count += 1
+        sample, text_truncated = self._truncate_text(value)
+        self._stderr_truncated |= text_truncated
+        self.stderr_lines.append(sample)
+        if len(self.stderr_lines) > self.diagnostic_limit:
+            del self.stderr_lines[: len(self.stderr_lines) - self.diagnostic_limit]
+            self._stderr_truncated = True
+
+    def _summarize_unsolicited(self, message: dict[str, Any]) -> dict[str, Any]:
+        summary: dict[str, Any] = {
+            "has_params": "params" in message,
+            "has_result": "result" in message,
+            "has_error": "error" in message,
+        }
+        for key in ("jsonrpc", "id", "method"):
+            if key not in message:
+                continue
+            value = message[key]
+            if isinstance(value, str):
+                summary[key] = self._truncate_text(value)[0]
+            elif value is None or isinstance(value, (bool, int, float)):
+                summary[key] = value
+            else:
+                summary[f"{key}_type"] = type(value).__name__
+        return summary
+
+    def _record_unsolicited(self, message: dict[str, Any]) -> None:
+        self.unsolicited_message_count += 1
+        if len(self.unsolicited_messages) < self.diagnostic_limit:
+            self.unsolicited_messages.append(self._summarize_unsolicited(message))
+        else:
+            self._unsolicited_messages_truncated = True
+
+    @property
+    def diagnostic_observations(self) -> dict[str, dict[str, int | bool]]:
+        return {
+            "protocol_noise": {
+                "total": self.protocol_noise_count,
+                "retained": len(self.protocol_noise),
+                "truncated": self._protocol_noise_truncated,
+            },
+            "stderr": {
+                "total": self.stderr_line_count,
+                "retained": len(self.stderr_lines),
+                "truncated": self._stderr_truncated,
+            },
+            "unsolicited_messages": {
+                "total": self.unsolicited_message_count,
+                "retained": len(self.unsolicited_messages),
+                "truncated": self._unsolicited_messages_truncated,
+                "content_summarized": True,
+            },
+        }
 
     async def __aenter__(self) -> "JsonRpcStdioClient":
         await self.start()
@@ -121,10 +210,10 @@ class JsonRpcStdioClient:
                 try:
                     message = json.loads(line)
                 except json.JSONDecodeError:
-                    self.protocol_noise.append(line)
+                    self._record_protocol_noise(line)
                     continue
                 if not isinstance(message, dict):
-                    self.protocol_noise.append(line)
+                    self._record_protocol_noise(line)
                     continue
                 response_id = message.get("id")
                 future = self._pending.get(response_id)
@@ -139,9 +228,9 @@ class JsonRpcStdioClient:
                 ):
                     future.set_result(message)
                 else:
-                    self.unsolicited_messages.append(message)
+                    self._record_unsolicited(message)
         except (ValueError, asyncio.LimitOverrunError) as error:
-            self.protocol_noise.append(f"<stdout framing error: {error}>")
+            self._record_protocol_noise(f"<stdout framing error: {error}>")
         finally:
             error = TransportError("target stdout closed before the response arrived")
             for future in tuple(self._pending.values()):
@@ -152,9 +241,7 @@ class JsonRpcStdioClient:
         assert self.process is not None and self.process.stderr is not None
         while raw_line := await self.process.stderr.readline():
             line = raw_line.decode("utf-8", errors="replace").rstrip("\r\n")
-            self.stderr_lines.append(line)
-            if len(self.stderr_lines) > 200:
-                del self.stderr_lines[: len(self.stderr_lines) - 200]
+            self._record_stderr(line)
 
     async def close(self) -> None:
         process = self.process

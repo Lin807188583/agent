@@ -143,7 +143,13 @@ class ProbeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(evidence.prompts_list_pages), 2)
         self.assertEqual(evidence.unknown_method_response["error"]["code"], -32601)
         self.assertIn("mcp fixture ready", evidence.stderr_lines)
-        serialized = json.dumps(build_report(evidence).to_dict())
+        diagnostics = evidence.diagnostic_observations
+        self.assertEqual(diagnostics["stderr"]["total"], 1)
+        self.assertEqual(diagnostics["stderr"]["retained"], 1)
+        self.assertFalse(diagnostics["stderr"]["truncated"])
+        report = build_report(evidence)
+        self.assertEqual(report.observations["diagnostics"], diagnostics)
+        serialized = json.dumps(report.to_dict())
         self.assertNotIn("tool-page-2", serialized)
         self.assertNotIn("resource-page-2", serialized)
 
