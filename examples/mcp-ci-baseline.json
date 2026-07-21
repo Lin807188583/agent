@@ -1,0 +1,47 @@
+{
+  "capabilities": [
+    "prompts",
+    "resources",
+    "tools"
+  ],
+  "manifests": {
+    "prompts": {
+      "count": 1,
+      "items": [
+        {
+          "identity": "summarize",
+          "sha256": "ed24db8d32a19ffa5554eb7b439d2832a9d0ba33f58f9b4def33f35e5868b523"
+        }
+      ]
+    },
+    "resource_templates": {
+      "count": 1,
+      "items": [
+        {
+          "identity": "sha256:aa2900adad55d16ab9ecf058cf21d00fc15ac3630ca2f3a1ecbf64416fabf74b",
+          "sha256": "74fb17f0e65a60d1aef6f6aef115ebcb60a64eaec1e7d1c8b0e9d9823a73b736"
+        }
+      ]
+    },
+    "resources": {
+      "count": 1,
+      "items": [
+        {
+          "identity": "sha256:fc16bb9bf204774c388bc3f168e6ce257823a4f9bd1fe1ca4082b76c601dacd0",
+          "sha256": "7c05956ae4713a938f2dfdd1fcf78c6797b1b5c295f40dcaf11973720bf4e07b"
+        }
+      ]
+    },
+    "tools": {
+      "count": 1,
+      "items": [
+        {
+          "identity": "read_note",
+          "sha256": "bc80937c347797412b5e6d2643b0d6441972c35552b18e4b134c077307c62869"
+        }
+      ]
+    }
+  },
+  "protocol_version": "2025-11-25",
+  "schema_version": 1
+}

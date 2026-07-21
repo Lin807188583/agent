@@ -1,0 +1,10 @@
+{
+  "suppressions": [
+    {
+      "rule_id": "SCHEMA005",
+      "tool": "delete everything!",
+      "reason": "Teaching fixture exception only; the intentionally permissive schema is retained for the bad-server demo.",
+      "expires": "2026-12-31"
+    }
+  ]
+}

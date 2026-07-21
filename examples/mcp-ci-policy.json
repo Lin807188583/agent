@@ -1,0 +1,32 @@
+{
+  "rules": {
+    "disabled": [],
+    "severity": {
+      "TOOL004": "medium"
+    }
+  },
+  "policy": {
+    "allowed_protocol_versions": [
+      "2025-11-25"
+    ],
+    "required_capabilities": [
+      "tools",
+      "resources",
+      "prompts"
+    ],
+    "required_tools": [
+      "read_note"
+    ],
+    "forbidden_tools": [
+      "admin/*",
+      "*/shell",
+      "*delete*"
+    ],
+    "max_tools": 10,
+    "require_read_only": [
+      "read_*",
+      "*/read"
+    ]
+  },
+  "suppressions": []
+}

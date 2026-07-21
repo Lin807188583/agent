@@ -1,0 +1,55 @@
+name: MCP CI
+description: Black-box stdio and Streamable HTTP MCP conformance, policy, and metadata drift checks
+inputs:
+  stdio:
+    description: Command that starts the MCP stdio server
+    required: false
+    default: ""
+  http:
+    description: Streamable HTTP MCP endpoint URL (mutually exclusive with stdio)
+    required: false
+    default: ""
+  fail-on:
+    description: Minimum finding severity that fails the job
+    required: false
+    default: medium
+  protocol-version:
+    description: MCP protocol version requested during initialization
+    required: false
+    default: "2025-11-25"
+  timeout:
+    description: Per-request timeout in seconds
+    required: false
+    default: "5"
+  format:
+    description: Report format (text, json, junit, or sarif)
+    required: false
+    default: text
+  output:
+    description: Optional UTF-8 report output path
+    required: false
+    default: ""
+  config:
+    description: Optional strict policy, rule-control, and suppression JSON path
+    required: false
+    default: ""
+  baseline:
+    description: Optional reviewed sanitized metadata baseline path
+    required: false
+    default: ""
+runs:
+  using: composite
+  steps:
+    - name: Run MCP black-box checks
+      shell: bash
+      env:
+        MCP_CI_STDIO: ${{ inputs.stdio }}
+        MCP_CI_HTTP: ${{ inputs.http }}
+        MCP_CI_FAIL_ON: ${{ inputs['fail-on'] }}
+        MCP_CI_PROTOCOL_VERSION: ${{ inputs['protocol-version'] }}
+        MCP_CI_TIMEOUT: ${{ inputs.timeout }}
+        MCP_CI_FORMAT: ${{ inputs.format }}
+        MCP_CI_OUTPUT: ${{ inputs.output }}
+        MCP_CI_CONFIG: ${{ inputs.config }}
+        MCP_CI_BASELINE: ${{ inputs.baseline }}
+      run: PYTHONPATH="$GITHUB_ACTION_PATH/src" python "$GITHUB_ACTION_PATH/scripts/action_entry.py"

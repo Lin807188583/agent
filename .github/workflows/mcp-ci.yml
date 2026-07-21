@@ -1,0 +1,42 @@
+name: MCP CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Run unit and end-to-end tests
+        env:
+          PYTHONPATH: src
+        run: python -m unittest discover -s tests -v
+      - name: Run the repository's v1 policy and baseline checks
+        uses: ./
+        with:
+          stdio: python examples/good_server.py
+          config: examples/mcp-ci-policy.json
+          baseline: examples/mcp-ci-baseline.json
+          fail-on: medium
+          format: sarif
+          output: artifacts/mcp-ci.sarif
+      - name: Upload MCP CI SARIF artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mcp-ci-sarif-py${{ matrix.python-version }}
+          path: artifacts/mcp-ci.sarif
+          if-no-files-found: error
