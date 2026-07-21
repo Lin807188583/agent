@@ -19,6 +19,7 @@ from .config import (
     apply_suppressions,
     load_config,
 )
+from .files import atomic_write_text
 from .models import Severity
 from .probe import run_http_probe, run_stdio_probe
 from .reporters import render_json, render_junit, render_sarif, render_text
@@ -165,9 +166,7 @@ async def _run_check(args: argparse.Namespace) -> int:
         failed=failed,
     )
     if args.output:
-        output = Path(args.output)
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(rendered + "\n", encoding="utf-8")
+        atomic_write_text(args.output, rendered + "\n")
     else:
         print(rendered)
     return 1 if failed else 0

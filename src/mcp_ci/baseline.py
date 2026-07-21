@@ -5,12 +5,11 @@ from __future__ import annotations
 from collections import defaultdict
 from hashlib import sha256
 import json
-import os
 from pathlib import Path
 import re
-import tempfile
 from typing import Any
 
+from .files import atomic_write_text
 from .models import CheckReport, Finding, Severity
 from .probe import ProbeEvidence
 
@@ -199,29 +198,10 @@ def write_baseline(path: str | Path, value: dict[str, Any]) -> None:
 
     validate_baseline(value)
     baseline_path = Path(path)
-    baseline_path.parent.mkdir(parents=True, exist_ok=True)
-    temporary_name: str | None = None
     try:
-        with tempfile.NamedTemporaryFile(
-            "w",
-            encoding="utf-8",
-            dir=baseline_path.parent,
-            prefix=f".{baseline_path.name}.",
-            suffix=".tmp",
-            delete=False,
-        ) as temporary:
-            temporary_name = temporary.name
-            json.dump(value, temporary, indent=2, sort_keys=True, ensure_ascii=False)
-            temporary.write("\n")
-            temporary.flush()
-            os.fsync(temporary.fileno())
-        os.replace(temporary_name, baseline_path)
+        serialized = json.dumps(value, indent=2, sort_keys=True, ensure_ascii=False)
+        atomic_write_text(baseline_path, serialized + "\n")
     except OSError as error:
-        if temporary_name is not None:
-            try:
-                Path(temporary_name).unlink(missing_ok=True)
-            except OSError:
-                pass
         raise BaselineError(f"cannot write baseline {baseline_path}: {error}") from error
 
 
